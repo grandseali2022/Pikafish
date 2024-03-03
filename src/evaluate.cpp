@@ -135,7 +135,7 @@ Value Eval::evaluate(const Position& pos, int optimism, Value alpha, Value beta)
     Color stm        = pos.side_to_move();
     int   shuffling  = pos.rule60_count();
     int   simpleEval = simple_eval(pos, stm);
-    bool  psqtOnly   = alpha - std::abs(simpleEval) > 2500 || std::abs(simpleEval) - beta > 2500;
+    bool  psqtOnly   = alpha - 2500 > simpleEval || simpleEval > beta + 2500;
 
     int   nnueComplexity;
     Value nnue = NNUE::evaluate(pos, true, &nnueComplexity, psqtOnly);
