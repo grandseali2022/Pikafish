@@ -135,9 +135,10 @@ Value Eval::evaluate(const Position& pos, int optimism) {
     Color stm        = pos.side_to_move();
     int   shuffling  = pos.rule60_count();
     int   simpleEval = simple_eval(pos, stm);
+    bool  psqtOnly   = std::abs(simpleEval) > 2500;
 
     int   nnueComplexity;
-    Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+    Value nnue = NNUE::evaluate(pos, true, &nnueComplexity, psqtOnly);
 
     // Blend optimism and eval with nnue complexity and material imbalance
     optimism += optimism * (nnueComplexity + std::abs(simpleEval - nnue)) / 781;

@@ -72,7 +72,10 @@ template<typename T>
 using LargePagePtr = std::unique_ptr<T, LargePageDeleter<T>>;
 
 std::string trace(Position& pos);
-Value       evaluate(const Position& pos, bool adjusted = false, int* complexity = nullptr);
+Value       evaluate(const Position& pos,
+                     bool            adjusted   = false,
+                     int*            complexity = nullptr,
+                     bool            psqtOnly   = false);
 void        hint_common_parent_position(const Position& pos);
 
 std::optional<std::string> load_eval(std::istream& stream);

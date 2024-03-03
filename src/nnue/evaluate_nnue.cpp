@@ -149,11 +149,12 @@ static bool write_parameters(std::ostream& stream, const std::string& netDescrip
 }
 
 void hint_common_parent_position(const Position& pos) {
-    featureTransformer->hint_common_access(pos);
+    int simpleEvalAbs = std::abs(simple_eval(pos, pos.side_to_move()));
+    featureTransformer->hint_common_access(pos, simpleEvalAbs > 2500);
 }
 
 // Evaluation function. Perform differential calculation.
-Value evaluate(const Position& pos, bool adjusted, int* complexity) {
+Value evaluate(const Position& pos, bool adjusted, int* complexity, bool psqtOnly) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
@@ -172,12 +173,12 @@ Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int  bucket     = (pos.count<ALL_PIECES>() - 1) / 4;
-    const auto psqt       = featureTransformer->transform(pos, transformedFeatures, bucket);
-    const auto positional = network[bucket]->propagate(transformedFeatures);
+    const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    const auto psqt   = featureTransformer->transform(pos, transformedFeatures, bucket, psqtOnly);
+    const auto positional = !psqtOnly ? network[bucket]->propagate(transformedFeatures) : 0;
 
     if (complexity)
-        *complexity = std::abs(psqt - positional) / OutputScale;
+        *complexity = !psqtOnly ? std::abs(psqt - positional) / OutputScale : 0;
 
     // Adjust psqt and positional ratio in evaluation when adjusted flag is set
     if (adjusted)
@@ -216,8 +217,9 @@ static NnueEvalTrace trace_evaluate(const Position& pos) {
     t.correctBucket = (pos.count<ALL_PIECES>() - 1) / 4;
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
-        const auto materialist = featureTransformer->transform(pos, transformedFeatures, bucket);
-        const auto positional  = network[bucket]->propagate(transformedFeatures);
+        const auto materialist =
+          featureTransformer->transform(pos, transformedFeatures, bucket, false);
+        const auto positional = network[bucket]->propagate(transformedFeatures);
 
         t.psqt[bucket]       = static_cast<Value>(materialist / OutputScale);
         t.positional[bucket] = static_cast<Value>(positional / OutputScale);
@@ -321,16 +323,16 @@ std::string trace(Position& pos) {
                 auto st = pos.state();
 
                 pos.remove_piece(sq);
-                st->accumulator.computed[WHITE] = false;
-                st->accumulator.computed[BLACK] = false;
+                st->accumulator.computed[WHITE]       = st->accumulator.computed[BLACK] =
+                  st->accumulator.computedPSQT[WHITE] = st->accumulator.computedPSQT[BLACK] = false;
 
                 Value eval = evaluate(pos);
                 eval       = pos.side_to_move() == WHITE ? eval : -eval;
                 v          = base - eval;
 
                 pos.put_piece(pc, sq);
-                st->accumulator.computed[WHITE] = false;
-                st->accumulator.computed[BLACK] = false;
+                st->accumulator.computed[WHITE]       = st->accumulator.computed[BLACK] =
+                  st->accumulator.computedPSQT[WHITE] = st->accumulator.computedPSQT[BLACK] = false;
             }
 
             writeSquare(f, r, pc, v);
